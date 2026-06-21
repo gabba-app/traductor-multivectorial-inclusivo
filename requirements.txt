@@ -1,5 +1,5 @@
 streamlit==1.58.0
-opencv-python-headless==4.13.0.92
+opencv-python-headless
 mediapipe==0.10.35
 deep-translator==1.11.4
 gtts==2.5.4
