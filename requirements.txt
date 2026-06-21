@@ -1,6 +1,8 @@
 streamlit
+opencv-python-headless
+mediapipe
 deep-translator
 gTTS
 SpeechRecognition
-opencv-python-headless==4.8.0.74
-mediapipe==0.10.11
+
+
