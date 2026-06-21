@@ -1,10 +1,18 @@
+¡Sí, entiendo perfectamente! Te voy a hacer todo desde cero: la estructura de carpetas, el código completo, y la configuración exacta para Streamlit Cloud.
+
+📁 Estructura de carpetas
+text
+traductor-multivectorial-inclusivo/
+├── app.py
+├── requirements.txt
+└── README.md
+📄 1. app.py (código completo y correcto)
+python
 import streamlit as st
 import cv2
 import mediapipe as mp
 from deep_translator import GoogleTranslator
 from gtts import gTTS
-import speech_recognition as sr
-import os
 import tempfile
 
 # --- CONFIGURACIÓN DE PÁGINA ---
@@ -33,71 +41,109 @@ CONCEPTS = {
 }
 
 def reconocer_gesto(landmarks):
+    """Reconoce gestos de mano basados en landmarks"""
     dedos = []
     ids_puntas = [8, 12, 16, 20]
-    for id in ids_puntas:
-        if landmarks.landmark[id].y < landmarks.landmark[id-2].y:
+    for id_punta in ids_puntas:
+        if landmarks.landmark[id_punta].y < landmarks.landmark[id_punta - 2].y:
             dedos.append(1)
-        else: 
+        else:
             dedos.append(0)
-    if sum(dedos) == 4: 
+    
+    if sum(dedos) == 4:
         return "AYUDA"
-    if sum(dedos) == 0: 
+    if sum(dedos) == 0:
         return "PELIGRO"
-    if dedos[0] == 1 and sum(dedos[1:]) == 0: 
+    if dedos[0] == 1 and sum(dedos[1:]) == 0:
         return "HOSPITAL"
     return None
 
+# --- TÍTULO ---
 st.title("🤟 Traductor Universal Inclusivo")
+st.markdown("---")
 
+# --- CONTROLES ---
 col1, col2 = st.columns(2)
-with col1:
-    idioma_origen = st.selectbox("Origen", ["Español (AR)", "Inglés (US)"])
-    modo_entrada = st.radio("Entrada", ["Texto", "Cámara"])
-with col2:
-    idioma_destino = st.selectbox("Destino", ["Inglés (US)", "Español (AR)"])
-    modo_salida = st.radio("Salida", ["Texto y Voz", "Imagen (Señas)"])
 
+with col1:
+    idioma_origen = st.selectbox("📌 Origen", ["Español (AR)", "Inglés (US)"])
+    modo_entrada = st.radio("📥 Entrada", ["Texto", "Cámara"])
+
+with col2:
+    idioma_destino = st.selectbox("📍 Destino", ["Inglés (US)", "Español (AR)"])
+    modo_salida = st.radio("📤 Salida", ["Texto y Voz", "Imagen (Señas)"])
+
+st.markdown("---")
+
+# --- ENTRADA DE TEXTO ---
 texto_entrada = ""
 
 if modo_entrada == "Texto":
-    texto_entrada = st.text_input("Mensaje:")
+    texto_entrada = st.text_input("💬 Escribe tu mensaje:")
 
 elif modo_entrada == "Cámara":
-    activar = st.toggle("Activar Cámara")
+    st.info("👆 Activá la cámara y muestra tu gesto de mano")
+    activar = st.toggle("🎥 Activar Cámara")
+    
     if activar:
-        cap = cv2.VideoCapture(0)
-        frame_placeholder = st.empty()
-        ret, frame = cap.read()
-        if ret:
-            frame = cv2.flip(frame, 1)
-            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            results = hands.process(rgb)
-            if results.multi_hand_landmarks:
-                for hl in results.multi_hand_landmarks:
-                    gesto = reconocer_gesto(hl)
-                    if gesto:
-                        st.success(f"Detectado: {gesto}")
-                        texto_entrada = CONCEPTS[gesto]["es" if "Español" in idioma_origen else "en"]
-            frame_placeholder.image(frame, channels="BGR")
-        cap.release()
+        try:
+            cap = cv2.VideoCapture(0)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            
+            frame_placeholder = st.empty()
+            
+            ret, frame = cap.read()
+            if ret:
+                frame = cv2.flip(frame, 1)
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                results = hands.process(rgb)
+                
+                if results.multi_hand_landmarks:
+                    for hl in results.multi_hand_landmarks:
+                        gesto = reconocer_gesto(hl)
+                        if gesto:
+                            st.success(f"✅ Detectado: **{gesto}**")
+                            texto_entrada = CONCEPTS[gesto][
+                                "es" if "Español" in idioma_origen else "en"
+                            ]
+                
+                frame_placeholder.image(frame, channels="BGR", width=640)
+            
+            cap.release()
+        except Exception as e:
+            st.error(f"❌ Error con la cámara: {e}")
 
+# --- TRADUCCIÓN ---
 if texto_entrada:
     src = 'es' if "Español" in idioma_origen else 'en'
     dest = 'en' if "Inglés" in idioma_destino else 'es'
     
-    res = GoogleTranslator(source=src, target=dest).translate(texto_entrada)
-    st.write(f"### Resultado: {res}")
+    try:
+        res = GoogleTranslator(source=src, target=dest).translate(texto_entrada)
+    except Exception:
+        res = texto_entrada
     
+    st.markdown("---")
+    st.write(f"### 🔄 Resultado: **{res}**")
+    
+    # --- SALIDA DE VOZ ---
     if modo_salida == "Texto y Voz":
-        tts = gTTS(text=res, lang=dest)
-        temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
-        tts.write_to_fp(temp_file.name)
-        st.audio(temp_file.name, format='audio/mp3')
+        try:
+            tts = gTTS(text=res, lang=dest)
+            temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+            tts.write_to_fp(temp_file.name)
+            st.audio(temp_file.name, format='audio/mp3')
+        except Exception as e:
+            st.warning(f"⚠️ No se pudo generar voz: {e}")
     
+    # --- SALIDA DE IMAGEN (SEÑAS) ---
     if modo_salida == "Imagen (Señas)":
+        st.markdown("---")
+        st.subheader("👋 Imagen de la seña:")
+        
         for k, v in CONCEPTS.items():
             if v["es"].lower() in texto_entrada.lower() or v["en"].lower() in texto_entrada.lower():
                 link = v["asl_gif" if "Inglés" in idioma_destino else "lsa_img"]
                 st.image(link, width=400)
-
+                break
