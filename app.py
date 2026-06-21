@@ -1,4 +1,4 @@
-port streamlit as st
+import streamlit as st
 import cv2
 import mediapipe as mp
 from deep_translator import GoogleTranslator
@@ -10,7 +10,7 @@ import tempfile
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Traductor Emergencia", layout="wide")
 
-# Inicializar MediaPipe (CORREGIDO)
+# Inicializar MediaPipe
 hands = mp.Hands(min_detection_confidence=0.7, max_num_hands=1)
 
 # Diccionario de emergencia
@@ -83,13 +83,12 @@ elif modo_entrada == "Cámara":
         cap.release()
 
 if texto_entrada:
-    src = 'es' if "Español" en idioma_origen else 'en'
+    src = 'es' if "Español" in idioma_origen else 'en'
     dest = 'en' if "Inglés" in idioma_destino else 'es'
     
     res = GoogleTranslator(source=src, target=dest).translate(texto_entrada)
     st.write(f"### Resultado: {res}")
     
-    # Generar voz con gTTS
     if modo_salida == "Texto y Voz":
         tts = gTTS(text=res, lang=dest)
         temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
@@ -101,3 +100,4 @@ if texto_entrada:
             if v["es"].lower() in texto_entrada.lower() or v["en"].lower() in texto_entrada.lower():
                 link = v["asl_gif" if "Inglés" in idioma_destino else "lsa_img"]
                 st.image(link, width=400)
+
