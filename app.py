@@ -1,13 +1,3 @@
-¡Sí, entiendo perfectamente! Te voy a hacer todo desde cero: la estructura de carpetas, el código completo, y la configuración exacta para Streamlit Cloud.
-
-📁 Estructura de carpetas
-text
-traductor-multivectorial-inclusivo/
-├── app.py
-├── requirements.txt
-└── README.md
-📄 1. app.py (código completo y correcto)
-python
 import streamlit as st
 import cv2
 import mediapipe as mp
