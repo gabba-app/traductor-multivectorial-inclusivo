@@ -39,10 +39,14 @@ def reconocer_gesto(landmarks):
     for id in ids_puntas:
         if landmarks.landmark[id].y < landmarks.landmark[id-2].y:
             dedos.append(1)
-        else: dedos.append(0)
-    if sum(dedos) == 4: return "AYUDA"
-    if sum(dedos) == 0: return "PELIGRO"
-    if dedos[0] == 1 and sum(dedos[1:]) == 0: return "HOSPITAL"
+        else: 
+            dedos.append(0)
+    if sum(dedos) == 4: 
+        return "AYUDA"
+    if sum(dedos) == 0: 
+        return "PELIGRO"
+    if dedos[0] == 1 and sum(dedos[1:]) == 0: 
+        return "HOSPITAL"
     return None
 
 st.title("🤟 Traductor Universal Inclusivo")
@@ -65,9 +69,8 @@ elif modo_entrada == "Cámara":
     if activar:
         cap = cv2.VideoCapture(0)
         frame_placeholder = st.empty()
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret: break
+        ret, frame = cap.read()
+        if ret:
             frame = cv2.flip(frame, 1)
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = hands.process(rgb)
@@ -78,7 +81,6 @@ elif modo_entrada == "Cámara":
                         st.success(f"Detectado: {gesto}")
                         texto_entrada = CONCEPTS[gesto]["es" if "Español" in idioma_origen else "en"]
             frame_placeholder.image(frame, channels="BGR")
-            if texto_entrada: break
         cap.release()
 
 if texto_entrada:
@@ -87,6 +89,13 @@ if texto_entrada:
     
     res = GoogleTranslator(source=src, target=dest).translate(texto_entrada)
     st.write(f"### Resultado: {res}")
+    
+    # Generar voz con gTTS
+    if modo_salida == "Texto y Voz":
+        tts = gTTS(text=res, lang=dest)
+        temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+        tts.write_to_fp(temp_file.name)
+        st.audio(temp_file.name, format='audio/mp3')
     
     if modo_salida == "Imagen (Señas)":
         for k, v in CONCEPTS.items():
