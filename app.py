@@ -4,15 +4,19 @@ from gtts import gTTS
 import os
 
 # --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Traductor Inclusivo Cruzado", layout="wide", page_icon="🤟")
+st.set_page_config(
+    page_title="Traductor de Señas e Idiomas Cruzado", 
+    layout="wide", 
+    page_icon="🤟"
+)
 
-# --- BASE DE DATOS DE CONCEPTOS (CRUZADA) ---
-# Contiene el texto y la seña correspondiente para cada cultura
+# --- BASE DE DATOS DE CONCEPTOS CRUZADOS ---
+# Cada objeto representa un concepto abstracto con sus respectivas palabras y señas por región.
 DATABASE = {
     "AYUDA": {
         "es": "Ayuda", 
         "en": "Help", 
-        "seña_lsa": "https://media.spreadthesign.com/image/500/help-2763.jpg",      # LSA (Arg)
+        "seña_lsa": "https://media.spreadthesign.com/image/500/help-2763.jpg",      # LSA (Argentina)
         "seña_asl": "https://www.lifeprint.com/asl101/gifs/h/help.gif"             # ASL (EEUU)
     },
     "HOSPITAL": {
@@ -32,120 +36,160 @@ DATABASE = {
         "en": "Thank you",
         "seña_lsa": "https://media.spreadthesign.com/image/500/thank-you-2342.jpg",
         "seña_asl": "https://www.lifeprint.com/asl101/gifs/t/thankyou.gif"
+    },
+    "BAÑO": {
+        "es": "Baño",
+        "en": "Bathroom",
+        "seña_lsa": "https://media.spreadthesign.com/image/500/toilet-9252.jpg",
+        "seña_asl": "https://www.lifeprint.com/asl101/gifs/t/toilet.gif"
     }
 }
 
-# --- TÍTULO ---
-st.title("🤟 Conector Universal de Comunicación")
-st.markdown("### Traducción Cruzada: Señas ⇄ Texto ⇄ Voz (Argentina ⇄ EEUU)")
+# --- INICIALIZACIÓN DEL ESTADO DE STREAMLIT ---
+# Se utiliza session_state para evitar que los datos se borren al interactuar con los botones
+if "concepto_seleccionado" not in st.session_state:
+    st.session_state.concepto_seleccionado = None
+if "texto_libre" not in st.session_state:
+    st.session_state.texto_libre = ""
+
+# --- INTERFAZ DE USUARIO ---
+st.title("🤟 Conector Universal de Comunicación Inclusiva")
+st.markdown("### Traducción lingüística y cultural multidireccional (Argentina ⇄ EEUU)")
 st.markdown("---")
 
-# --- PANEL DE CONFIGURACIÓN DE CANALES ---
-st.subheader("⚙️ Configuración del Canal de Comunicación")
-col1, col2 = st.columns(2)
+# --- PANEL DE CONFIGURACIÓN DE ROLES ---
+st.subheader("⚙️ Configuración de los Canales de Comunicación")
+col_emisor, col_receptor = st.columns(2)
 
-with col1:
+with col_emisor:
     st.markdown("#### **Emisor (Quien envía el mensaje)**")
-    tipo_origen = st.radio("Formato de entrada:", ["Texto / Voz de un Oyente", "Lengua de Señas de un Mudo"], key="origen_tipo")
-    idioma_origen = st.selectbox("Cultura/Idioma de Origen:", ["Español (Argentina)", "Inglés (EEUU)"], key="origen_lang")
-
-with col2:
-    st.markdown("#### **Receptor (Quien recibe el mensaje)**")
-    tipo_destino = st.radio("Formato de salida deseado:", ["Texto y Voz (Para Oyentes)", "Lengua de Señas (Para Mudos)"], key="destino_tipo")
-    idioma_destino = st.selectbox("Cultura/Idioma de Destino:", ["Español (Argentina)", "Inglés (EEUU)"], key="destino_lang")
-
-st.markdown("---")
-
-# Variables lógicas simplificadas
-es_origen_latam = "Argentina" in idioma_origen
-es_destino_latam = "Argentina" in idioma_destino
-
-# --- ENTRADA DE DATOS SEGÚN EL TIPO DE EMISOR ---
-texto_a_procesar = ""
-
-if tipo_origen == "Lengua de Señas de un Mudo":
-    st.subheader("👋 Panel de Señas de Entrada")
-    st.info("Hacé clic en la seña que estás realizando para enviarla al sistema:")
-    
-    # Determinar qué imágenes de señas mostrar en el teclado según el origen seleccionado
-    key_foto_origen = "seña_lsa" if es_origen_latam else "seña_asl"
-    idioma_clave_origen = "es" if es_origen_latam else "en"
-    
-    # Renderizar los botones con las señas correspondientes
-    columnas_señas = st.columns(len(DATABASE))
-    for i, (clave_concepto, datos) in enumerate(DATABASE.items()):
-        with columnas_señas[i]:
-            st.image(datos[key_foto_origen], width=140)
-            if st.button(f"Firmar: {clave_concepto}", key=f"btn_{clave_concepto}", use_container_width=True):
-                # El sistema detecta el concepto exacto mapeado internamente
-                texto_a_procesar = datos[idioma_clave_origen]
-
-else:
-    st.subheader("💬 Entrada por Texto o Voz")
-    texto_a_procesar = st.text_input(
-        "Escribí tu mensaje aquí (ej: Hola, necesito ayuda, hospital...):",
-        placeholder="Escribí acá..."
+    formato_origen = st.radio(
+        "¿Cómo se expresa el emisor?", 
+        ["Usa Lenguaje de Señas", "Escribe Texto / Habla por Voz"], 
+        key="f_origen"
+    )
+    idioma_origen = st.selectbox(
+        "Cultura / Región de Origen:", 
+        ["Español (Argentina)", "Inglés (EEUU)"], 
+        key="i_origen"
     )
 
-# --- PROCESAMIENTO Y TRADUCCIÓN MULTIDIRECCIONAL ---
-if texto_a_procesar:
-    st.markdown("---")
-    st.subheader("🎯 Resultado de la Traducción")
-    
-    # 1. Definir códigos de idioma para el motor de traducción de texto
-    src_code = 'es' if es_origen_latam else 'en'
-    dest_code = 'en' if es_destino_latam else 'es'
-    
-    # 2. Traducir el texto base
-    try:
-        if src_code == dest_code:
-            texto_traducido = texto_a_procesar
-        else:
-            texto_traducido = GoogleTranslator(source=src_code, target=dest_code).translate(texto_a_procesar)
-    except Exception as e:
-        texto_traducido = texto_a_procesar
-        st.error(f"Error en la pasarela de traducción: {e}")
-
-    # --- MOSTRAR SALIDAS SEGÚN LO SOLICITADO POR EL RECEPTOR ---
-    
-    if tipo_destino == "Texto y Voz (Para Oyentes)":
-        # Salida pensada para el oyente
-        st.success(f"🗣️ **Mensaje Traducido:** {texto_traducido}")
-        
-        # Generar audio hablado en el idioma de destino
-        try:
-            tts = gTTS(text=texto_traducido, lang=dest_code)
-            filename = "output_speech.mp3"
-            tts.save(filename)
-            with open(filename, "rb") as f:
-                audio_bytes = f.read()
-            st.audio(audio_bytes, format='audio/mp3')
-            os.remove(filename)
-        except Exception as e:
-            st.caption(f"(Audio no disponible de momento: {e})")
-            
-    else:
-        # Salida pensada para el mudo (Señas del país de destino)
-        st.info(f"📋 **Texto de respaldo:** {texto_traducido}")
-        
-        # Buscar la seña equivalente en la base de datos para el idioma destino
-        seña_encontrada = False
-        key_foto_destino = "seña_lsa" if es_destino_latam else "seña_asl"
-        
-        for clave, datos in DATABASE.items():
-            # Buscamos si la palabra ingresada o traducida coincide con el diccionario
-            if (datos["es"].lower() in texto_a_procesar.lower() or 
-                datos["en"].lower() in texto_a_procesar.lower() or
-                datos["es"].lower() in texto_traducido.lower() or
-                datos["en"].lower() in texto_traducido.lower()):
-                
-                st.markdown(f"#### 👋 Interpretación en Señas para el receptor:")
-                st.image(datos[key_foto_destino], width=350, caption=f"Seña oficial en {'LSA (Argentina)' if es_destino_latam else 'ASL (EEUU)'}")
-                seña_encontrada = True
-                break
-                
-        if not seña_encontrada:
-            st.warning("⚠️ El mensaje se tradujo a texto, pero no poseemos el registro visual de esa seña exacta en el sistema adaptado.")
+with col_receptor:
+    st.markdown("#### **Receptor (Quien recibe el mensaje)**")
+    formato_destino = st.radio(
+        "¿Cómo quiere recibirlo el receptor?", 
+        ["Ver Lenguaje de Señas", "Leer Texto y Escuchar Voz"], 
+        key="f_destino"
+    )
+    idioma_destino = st.selectbox(
+        "Cultura / Región de Destino:", 
+        ["Español (Argentina)", "Inglés (EEUU)"], 
+        key="i_destino"
+    )
 
 st.markdown("---")
-st.caption("💡 **Tip de uso:** Podés combinar cualquier Entrada con cualquier Salida. Por ejemplo: Configurar Origen en 'Lengua de Señas' + 'Inglés (EEUU)' y Destino en 'Texto y Voz' + 'Español (Argentina)' para que un usuario sordo norteamericano se comunique fluidamente con un argentino oyente.")
+
+# Variables lógicas simplificadas para el procesamiento
+origen_es_arg = "Argentina" in idioma_origen
+destino_es_arg = "Argentina" in idioma_destino
+
+src_lang_code = 'es' if origen_es_arg else 'en'
+dest_lang_code = 'en' if destino_es_arg else 'es'
+
+# --- ENTRADA DE DATOS (INPUT) ---
+texto_a_traducir = ""
+
+if formato_origen == "Usa Lenguaje de Señas":
+    st.subheader("👋 Panel Teclado de Señas de Entrada")
+    st.caption("Presioná la seña que estás realizando para que el sistema procese su significado:")
+    
+    # Identificar qué tipo de imágenes mostrar en los botones según el emisor
+    key_foto_origen = "seña_lsa" if origen_es_arg else "seña_asl"
+    
+    # Dibujar la cuadrícula dinámica de botones de señas
+    columnas = st.columns(len(DATABASE))
+    for i, (clave_concepto, datos) in enumerate(DATABASE.items()):
+        with columnas[i]:
+            st.image(datos[key_foto_origen], width=130)
+            if st.button(f"Hacer Seña: {clave_concepto}", key=f"btn_{clave_concepto}", use_container_width=True):
+                st.session_state.concepto_seleccionado = clave_concepto
+                st.session_state.texto_libre = ""  # Limpia el texto manual si usa señas
+                
+    if st.session_state.concepto_seleccionado:
+        # Extraemos la palabra exacta en el idioma del origen según el concepto pulsado
+        texto_a_traducir = DATABASE[st.session_state.concepto_seleccionado][src_lang_code]
+        st.info(f"Concepto de seña registrado en origen: **{texto_a_traducir}**")
+
+else:
+    st.subheader("💬 Entrada por Texto o Dictado de Voz")
+    st.session_state.texto_libre = st.text_input(
+        "Escribí el mensaje o frase aquí:", 
+        value=st.session_state.texto_libre,
+        placeholder="Ej: Necesito ayuda urgente..."
+    )
+    if st.session_state.texto_libre:
+        texto_a_traducir = st.session_state.texto_libre
+        st.session_state.concepto_seleccionado = None  # Limpia la seña si escribe manualmente
+
+# --- PROCESAMIENTO Y TRADUCCIÓN ---
+if texto_a_traducir:
+    st.markdown("---")
+    st.subheader("🎯 Resultado de la Conversión en Destino")
+    
+    # 1. Ejecutar la pasarela de traducción de texto a nivel lingüístico
+    try:
+        if src_lang_code == dest_lang_code:
+            texto_final_traducido = texto_a_traducir
+        else:
+            texto_final_traducido = GoogleTranslator(source=src_lang_code, target=dest_lang_code).translate(texto_a_traducir)
+    except Exception as e:
+        texto_final_traducido = texto_a_traducir
+        st.error(f"Error en el motor de traducción: {e}")
+
+    # 2. RENDERIZAR LAS SALIDAS SOLICITADAS POR EL RECEPTOR
+    
+    if formato_destino == "Leer Texto y Escuchar Voz":
+        # Bloque de salida estructurado para personas oyentes
+        st.success(f"🗣️ **Mensaje Traducido:** {texto_final_traducido}")
+        
+        # Procesamiento del motor de Voz (gTTS) sin interrupciones del sistema
+        try:
+            tts = gTTS(text=texto_final_traducido, lang=dest_lang_code)
+            audio_path = "temp_output_voice.mp3"
+            tts.save(audio_path)
+            
+            with open(audio_path, "rb") as audio_file:
+                audio_bytes = audio_file.read()
+            st.audio(audio_bytes, format='audio/mp3')
+            os.remove(audio_path) # Limpieza inmediata del buffer
+        except Exception as e:
+            st.caption(f"(Voz de lectura no disponible momentáneamente: {e})")
+
+    else:
+        # Bloque de salida estructurado para personas sordas (Muestra señas de la cultura destino)
+        st.info(f"📋 **Texto de apoyo:** {texto_final_traducido}")
+        
+        # Buscar correspondencia del mensaje con los diccionarios gráficos de señas
+        seña_localizada = False
+        key_foto_destino = "seña_lsa" if destino_es_arg else "seña_asl"
+        
+        for clave, datos in DATABASE.items():
+            # Validación inteligente: verifica si coincide por concepto activo o por palabras clave del texto
+            if (st.session_state.concepto_seleccionado == clave or
+                datos["es"].lower() in texto_a_traducir.lower() or 
+                datos["en"].lower() in texto_a_traducir.lower() or
+                datos["es"].lower() in texto_final_traducido.lower() or
+                datos["en"].lower() in texto_final_traducido.lower()):
+                
+                nombre_cultura_destino = "LSA (Argentina)" if destino_es_arg else "ASL (EEUU)"
+                st.markdown(f"#### 👋 Seña equivalente en el idioma destino ({nombre_cultura_destino}):")
+                st.image(datos[key_foto_destino], width=380, caption=f"Seña correspondiente a '{datos[dest_lang_code]}'")
+                seña_localizada = True
+                break
+                
+        if not seña_localizada:
+            st.warning("⚠️ El texto se tradujo correctamente, pero este término no cuenta con un registro gráfico de seña incorporado en la base de datos local.")
+
+# --- FOOTER INFORMATIVO ---
+st.markdown("---")
+st.caption("💡 **Ejemplo de uso de matriz cruzada:** Configurá Emisor en 'Lenguaje de Señas' + 'Inglés (EEUU)' y Receptor en 'Ver Lenguaje de Señas' + 'Español (Argentina)' para ver cómo el sistema traduce una seña americana (ASL) directamente a una seña argentina (LSA).")
