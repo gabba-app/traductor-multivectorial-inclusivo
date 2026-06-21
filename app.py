@@ -1,3 +1,5 @@
+import os
+os. environ["OPENCV_VIDEOIO_PRIORITY_MSMF"]  = "O"
 import streamlit as st
 import cv2
 import mediapipe as mp
