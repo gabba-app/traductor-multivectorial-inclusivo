@@ -1,7 +1,7 @@
 import streamlit as st
 import cv2
 import mediapipe as mp
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 from gtts import gTTS
 import speech_recognition as sr
 import os
@@ -130,7 +130,7 @@ if texto_entrada:
     cod_destino = 'en' if "Inglés" in idioma_destino else 'es'
     
     # Traducción del texto
-    texto_traducido = translator.translate(texto_entrada, src=cod_origen, dest=cod_destino).text
+    texto_traducido = GoogleTranslator(source=src,target=dest).translate(texto_entrada)
 
     st.subheader("Resultado de la traducción:")
     
