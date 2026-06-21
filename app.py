@@ -1,9 +1,9 @@
 import streamlit as st
-import cv2
 import mediapipe as mp
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import tempfile
+import numpy as np
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Traductor Emergencia", layout="wide")
@@ -48,8 +48,23 @@ def reconocer_gesto(landmarks):
         return "HOSPITAL"
     return None
 
+def procesar_imagen(media_image):
+    """Procesa imagen de Streamlit con MediaPipe"""
+    if media_image is None:
+        return None, None
+    
+    # Convertir a numpy array
+    image = np.array(media_image.data)
+    
+    # Convertir RGB a BGR (si es necesario) y procesar
+    rgb = image.astype('uint8')
+    results = hands.process(rgb)
+    
+    return results, image
+
 # --- TÍTULO ---
 st.title("🤟 Traductor Universal Inclusivo")
+st.markdown("### Traducción de texto y reconocimiento de gestos para emergencias")
 st.markdown("---")
 
 # --- CONTROLES ---
@@ -72,37 +87,32 @@ if modo_entrada == "Texto":
     texto_entrada = st.text_input("💬 Escribe tu mensaje:")
 
 elif modo_entrada == "Cámara":
-    st.info("👆 Activá la cámara y muestra tu gesto de mano")
-    activar = st.toggle("🎥 Activar Cámara")
+    st.info("👆 Capturá una foto de tu mano mostrando el gesto")
     
-    if activar:
+    camera_image = st.camera_input("📸 Capturar foto de mano")
+    
+    if camera_image:
         try:
-            cap = cv2.VideoCapture(0)
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            results, image = procesar_imagen(camera_image)
             
-            frame_placeholder = st.empty()
+            # Mostrar imagen
+            st.image(image, caption="📷 Tu imagen", use_container_width=True)
             
-            ret, frame = cap.read()
-            if ret:
-                frame = cv2.flip(frame, 1)
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                results = hands.process(rgb)
-                
-                if results.multi_hand_landmarks:
-                    for hl in results.multi_hand_landmarks:
-                        gesto = reconocer_gesto(hl)
-                        if gesto:
-                            st.success(f"✅ Detectado: **{gesto}**")
-                            texto_entrada = CONCEPTS[gesto][
-                                "es" if "Español" in idioma_origen else "en"
-                            ]
-                
-                frame_placeholder.image(frame, channels="BGR", width=640)
-            
-            cap.release()
+            # Detectar gesto
+            if results.multi_hand_landmarks:
+                for hl in results.multi_hand_landmarks:
+                    gesto = reconocer_gesto(hl)
+                    if gesto:
+                        st.success(f"✅ Gesto detectado: **{gesto}**")
+                        texto_entrada = CONCEPTS[gesto][
+                            "es" if "Español" in idioma_origen else "en"
+                        ]
+                    else:
+                        st.warning("⚠️ Gesto no reconocido. Probá con: 4 dedos (AYUDA), 0 dedos (PELIGRO), o 1 dedo (HOSPITAL)")
+            else:
+                st.warning("⚠️ No se detectó ninguna mano. Probá de nuevo mostrando tu mano claramente.")
         except Exception as e:
-            st.error(f"❌ Error con la cámara: {e}")
+            st.error(f"❌ Error procesando imagen: {e}")
 
 # --- TRADUCCIÓN ---
 if texto_entrada:
@@ -137,3 +147,20 @@ if texto_entrada:
                 link = v["asl_gif" if "Inglés" in idioma_destino else "lsa_img"]
                 st.image(link, width=400)
                 break
+
+# --- INFORMACIÓN ---
+st.markdown("---")
+st.markdown("### 📋 Gestos reconocidos:")
+
+st.markdown(
+    """
+    | Gesto | Significado | Descripción |
+    |-------|-------------|-------------|
+    | 4 dedos ↑ | **AYUDA** | Todos los dedos abiertos |
+    | 0 dedos ↑ | **PELIGRO** | Todos los dedos cerrados (puño) |
+    | 1 dedo ↑ | **HOSPITAL** | Solo el índice abierto |
+    """
+)
+
+st.markdown("---")
+st.markdown("🌐 **Inclusivo:** ASL (American Sign Language) y LSA (Lengua de Señas Argentina)")
