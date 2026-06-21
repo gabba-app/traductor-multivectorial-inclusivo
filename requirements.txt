@@ -1,7 +1,7 @@
-streamlit>=1.28.0
-opencv-python-headless>=4.8.0
-mediapipe>=0.10.0
-deep-translator>=1.11.0
-gtts>=2.3.0
-speechrecognition>=3.10.0
-numpy>=1.24.0
+streamlit==1.58.0
+opencv-python-headless==4.13.0.92
+mediapipe==0.10.35
+deep-translator==1.11.4
+gtts==2.5.4
+speechrecognition==3.17.0
+numpy==2.4.0
