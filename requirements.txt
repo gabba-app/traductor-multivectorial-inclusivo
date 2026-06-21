@@ -1,8 +1,8 @@
-streamlit
-opencv-python-headless
-mediapipe
-deep-translator
-gTTS
-SpeechRecognition
-
+streamlit>=1.28.0
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+deep-translator>=1.11.0
+gTTS>=2.3.0
+speechrecognition>=3.10.0
+numpy>=1.24.0
 
