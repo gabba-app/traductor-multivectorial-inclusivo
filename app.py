@@ -1,15 +1,10 @@
 import streamlit as st
-import mediapipe as mp
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import tempfile
-import numpy as np
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Traductor Emergencia", layout="wide")
-
-# Inicializar MediaPipe
-hands = mp.Hands(min_detection_confidence=0.7, max_num_hands=1)
 
 # Diccionario de emergencia
 CONCEPTS = {
@@ -30,41 +25,9 @@ CONCEPTS = {
     }
 }
 
-def reconocer_gesto(landmarks):
-    """Reconoce gestos de mano basados en landmarks"""
-    dedos = []
-    ids_puntas = [8, 12, 16, 20]
-    for id_punta in ids_puntas:
-        if landmarks.landmark[id_punta].y < landmarks.landmark[id_punta - 2].y:
-            dedos.append(1)
-        else:
-            dedos.append(0)
-    
-    if sum(dedos) == 4:
-        return "AYUDA"
-    if sum(dedos) == 0:
-        return "PELIGRO"
-    if dedos[0] == 1 and sum(dedos[1:]) == 0:
-        return "HOSPITAL"
-    return None
-
-def procesar_imagen(media_image):
-    """Procesa imagen de Streamlit con MediaPipe"""
-    if media_image is None:
-        return None, None
-    
-    # Convertir a numpy array
-    image = np.array(media_image.data)
-    
-    # Convertir RGB a BGR (si es necesario) y procesar
-    rgb = image.astype('uint8')
-    results = hands.process(rgb)
-    
-    return results, image
-
 # --- TÍTULO ---
 st.title("🤟 Traductor Universal Inclusivo")
-st.markdown("### Traducción de texto y reconocimiento de gestos para emergencias")
+st.markdown("### Traducción de texto emergente con voz y señas")
 st.markdown("---")
 
 # --- CONTROLES ---
@@ -72,63 +35,37 @@ col1, col2 = st.columns(2)
 
 with col1:
     idioma_origen = st.selectbox("📌 Origen", ["Español (AR)", "Inglés (US)"])
-    modo_entrada = st.radio("📥 Entrada", ["Texto", "Cámara"])
-
+    
 with col2:
     idioma_destino = st.selectbox("📍 Destino", ["Inglés (US)", "Español (AR)"])
-    modo_salida = st.radio("📤 Salida", ["Texto y Voz", "Imagen (Señas)"])
 
 st.markdown("---")
 
 # --- ENTRADA DE TEXTO ---
-texto_entrada = ""
+st.subheader("💬 Escribe tu mensaje de emergencia:")
+texto_entrada = st.text_input(
+    "Mensaje:", 
+    placeholder="Ej: Ayuda, Hospital, Peligro...",
+    help="Seleccioná una de las opciones predefinidas o escribí tu propio mensaje"
+)
 
-if modo_entrada == "Texto":
-    texto_entrada = st.text_input("💬 Escribe tu mensaje:")
-
-elif modo_entrada == "Cámara":
-    st.info("👆 Capturá una foto de tu mano mostrando el gesto")
-    
-    camera_image = st.camera_input("📸 Capturar foto de mano")
-    
-    if camera_image:
+# --- BOTÓN DE TRADUCCIÓN ---
+if st.button("🔄 Traducir", type="primary", use_container_width=True):
+    if texto_entrada:
+        src = 'es' if "Español" in idioma_origen else 'en'
+        dest = 'en' if "Inglés" in idioma_destino else 'es'
+        
         try:
-            results, image = procesar_imagen(camera_image)
-            
-            # Mostrar imagen
-            st.image(image, caption="📷 Tu imagen", use_container_width=True)
-            
-            # Detectar gesto
-            if results.multi_hand_landmarks:
-                for hl in results.multi_hand_landmarks:
-                    gesto = reconocer_gesto(hl)
-                    if gesto:
-                        st.success(f"✅ Gesto detectado: **{gesto}**")
-                        texto_entrada = CONCEPTS[gesto][
-                            "es" if "Español" in idioma_origen else "en"
-                        ]
-                    else:
-                        st.warning("⚠️ Gesto no reconocido. Probá con: 4 dedos (AYUDA), 0 dedos (PELIGRO), o 1 dedo (HOSPITAL)")
-            else:
-                st.warning("⚠️ No se detectó ninguna mano. Probá de nuevo mostrando tu mano claramente.")
+            res = GoogleTranslator(source=src, target=dest).translate(texto_entrada)
         except Exception as e:
-            st.error(f"❌ Error procesando imagen: {e}")
-
-# --- TRADUCCIÓN ---
-if texto_entrada:
-    src = 'es' if "Español" in idioma_origen else 'en'
-    dest = 'en' if "Inglés" in idioma_destino else 'es'
-    
-    try:
-        res = GoogleTranslator(source=src, target=dest).translate(texto_entrada)
-    except Exception:
-        res = texto_entrada
-    
-    st.markdown("---")
-    st.write(f"### 🔄 Resultado: **{res}**")
-    
-    # --- SALIDA DE VOZ ---
-    if modo_salida == "Texto y Voz":
+            st.error(f"❌ Error de traducción: {e}")
+            res = texto_entrada
+        
+        st.markdown("---")
+        st.success(f"### ✅ Resultado: **{res}**")
+        
+        # --- SALIDA DE VOZ ---
+        st.subheader("🔊 Voz:")
         try:
             tts = gTTS(text=res, lang=dest)
             temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
@@ -136,31 +73,57 @@ if texto_entrada:
             st.audio(temp_file.name, format='audio/mp3')
         except Exception as e:
             st.warning(f"⚠️ No se pudo generar voz: {e}")
-    
-    # --- SALIDA DE IMAGEN (SEÑAS) ---
-    if modo_salida == "Imagen (Señas)":
-        st.markdown("---")
-        st.subheader("👋 Imagen de la seña:")
         
+        # --- SALIDA DE IMAGEN (SEÑAS) ---
+        st.subheader("👋 Seña visual:")
+        
+        gesto_encontrado = False
         for k, v in CONCEPTS.items():
             if v["es"].lower() in texto_entrada.lower() or v["en"].lower() in texto_entrada.lower():
                 link = v["asl_gif" if "Inglés" in idioma_destino else "lsa_img"]
                 st.image(link, width=400)
+                gesto_encontrado = True
                 break
+        
+        if not gesto_encontrado:
+            st.info("ℹ️ Este mensaje no tiene seña visual predefinida. Las señas disponibles son: AYUDA, HOSPITAL, PELIGRO")
+        
+        # --- INFORMACIÓN ---
+        st.markdown("---")
+        st.markdown("### 📋 Opciones predefinidas con señas:")
+        
+        st.markdown(
+            """
+            | Opción | Español | Inglés |
+            |--------|---------|--------|
+            | AYUDA | Ayuda | Help |
+            | HOSPITAL | Hospital | Hospital |
+            | PELIGRO | Peligro | Danger |
+            """
+        )
+        
+        st.markdown("---")
+        st.markdown("🌐 **Inclusivo:** ASL (American Sign Language) y LSA (Lengua de Señas Argentina)")
+    else:
+        st.warning("⚠️ Por favor, escribí un mensaje para traducir.")
 
-# --- INFORMACIÓN ---
+# --- BOTONES DE EMERGENCIA RÁPIDA ---
 st.markdown("---")
-st.markdown("### 📋 Gestos reconocidos:")
+st.subheader("🚨 Emergencia rápida (seleccioná una opción):")
 
-st.markdown(
-    """
-    | Gesto | Significado | Descripción |
-    |-------|-------------|-------------|
-    | 4 dedos ↑ | **AYUDA** | Todos los dedos abiertos |
-    | 0 dedos ↑ | **PELIGRO** | Todos los dedos cerrados (puño) |
-    | 1 dedo ↑ | **HOSPITAL** | Solo el índice abierto |
-    """
-)
+col3, col4, col5 = st.columns(3)
 
-st.markdown("---")
-st.markdown("🌐 **Inclusivo:** ASL (American Sign Language) y LSA (Lengua de Señas Argentina)")
+with col3:
+    if st.button("🆘 AYUDA", use_container_width=True):
+        texto_entrada = "Ayuda"
+        st.rerun()
+
+with col4:
+    if st.button("🏥 HOSPITAL", use_container_width=True):
+        texto_entrada = "Hospital"
+        st.rerun()
+
+with col5:
+    if st.button("⚠️ PELIGRO", use_container_width=True):
+        texto_entrada = "Peligro"
+        st.rerun()
